@@ -1,23 +1,28 @@
 """OSM household extraction and map generation helpers."""
 
 from __future__ import annotations
-
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import folium
 import requests
 
-
-# Defaults (same as existing script)
-DEFAULT_LAT = 52.934566
-DEFAULT_LON = 6.673915
-DEFAULT_RADIUS = 500  # meters
+from simulation.MMN_dataclasses import NoiseSource
 
 
-class ValidationError(Exception):
-    """Raised when input validation fails."""
+# Defaults (this is the grolloo measurement location in the ITU-R RNDb)
+DEFAULT_LAT = 52.9019
+DEFAULT_LON = 6.6533
+DEFAULT_RADIUS = 1000  # meters
+
+# Prefer a few different public Overpass endpoints to improve availability
+_OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
 
 
+# Helper functions to parse the input parameters for validation
 def _parse_float(value: Any, name: str, min_value: Optional[float] = None, max_value: Optional[float] = None) -> Tuple[Optional[float], Optional[str]]:
     """Parse a float value with optional range validation."""
     if value is None or (isinstance(value, str) and value.strip() == ""):
@@ -79,21 +84,13 @@ def validate_search_params(lat: Any, lon: Any, radius: Any) -> Tuple[Dict[str, U
     else:
         params["lon"] = lon_val  # type: ignore[assignment]
 
-    radius_val, radius_err = _parse_int(radius, "Radius (m)", 1, 10000)
+    radius_val, radius_err = _parse_int(radius, "Radius (m)", 1, 100000)
     if radius_err:
         errors["radius"] = radius_err
     else:
         params["radius"] = radius_val  # type: ignore[assignment]
 
     return params, errors
-
-
-# Prefer a few different public Overpass endpoints to improve availability
-_OVERPASS_ENDPOINTS = [
-    "https://overpass-api.de/api/interpreter",
-    "https://lz4.overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter",
-]
 
 
 class ExternalServiceError(Exception):
@@ -135,8 +132,22 @@ def get_households(lat: float, lon: float, radius: int) -> List[Dict[str, Any]]:
     )
 
 
-def build_household_map(lat: float, lon: float, radius: int) -> Tuple[str, Dict[str, Any]]:
-    """Build a Folium map showing households and a search radius."""
+def build_blank_map(lat: float, lon: float) -> str:
+    """Build a plain Folium map centred on (lat, lon) with no overlays."""
+    m = folium.Map(location=[lat, lon], zoom_start=16)
+    return m._repr_html_()
+
+
+def build_household_map(
+    lat: float, lon: float, radius: int
+) -> Tuple[str, Dict[str, Any], List[NoiseSource]]:
+    """Build a Folium map showing households and a search radius.
+
+    Returns:
+        (map_html, meta, sources)
+        sources is a list of NoiseSource objects (id, lat, lon, address set;
+        position, EIRP, freq, height filled in at simulate).
+    """
 
     error_msg: Optional[str] = None
     try:
@@ -158,9 +169,10 @@ def build_household_map(lat: float, lon: float, radius: int) -> Tuple[str, Dict[
     folium.Marker(
         [lat, lon],
         popup="Center Point",
-        icon=folium.Icon(color="red", icon="info-sign"),
+        icon=folium.Icon(color="red", icon="tower-broadcast", prefix="fa"),
     ).add_to(m)
 
+    sources: List[NoiseSource] = []
     for el in elements:
         if el.get("type") == "node":
             pos = [el.get("lat"), el.get("lon")]
@@ -171,8 +183,12 @@ def build_household_map(lat: float, lon: float, radius: int) -> Tuple[str, Dict[
         if not pos or None in pos:
             continue
 
-        addr = el.get("tags", {}).get("addr:housenumber") or el.get("id")
-        popup = f"House No: {addr} ({pos[0]:.6f}, {pos[1]:.6f})"
+        source_id = len(sources)
+        addr = el.get("tags", {}).get("addr:housenumber") or str(el.get("id", ""))
+        src = NoiseSource(id=source_id, lat=pos[0], lon=pos[1], address=addr)
+        sources.append(src)
+
+        popup = f"ID: {src.id}\n({src.lat:.6f}, {src.lon:.6f})"
 
         folium.CircleMarker(
             location=pos,
@@ -183,8 +199,7 @@ def build_household_map(lat: float, lon: float, radius: int) -> Tuple[str, Dict[
             fill_opacity=0.8,
         ).add_to(m)
 
-    # Include some metadata (count of elements) to help UI show stats if needed.
-    meta: Dict[str, Any] = {"household_count": len(elements)}
+    meta: Dict[str, Any] = {"household_count": len(sources)}
     if error_msg:
         meta["error"] = error_msg
-    return m._repr_html_(), meta
+    return m._repr_html_(), meta, sources
