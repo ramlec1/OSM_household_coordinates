@@ -1,9 +1,7 @@
-"""This webapp is a tool to calculate the radio noise field strength at a given location.
+"""Household finder webapp.
 
-It uses the MMN model to calculate the radio noise field strength at a given location.
-
-It retreives the households from OpenStreetMap, calculates the propagation from each
-noise source to the receiver, and sums the contributions to the total received power.
+Searches OpenStreetMap for households with addresses (addr:housenumber) within
+a configurable radius around a given location, and displays them on a map.
 
 Marcel van den Broek, 2026
 """

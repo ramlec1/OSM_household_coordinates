@@ -1,6 +1,6 @@
 /**
- * Frontend logic for the Radio Noise Calculator.
- * Handles: search (Overpass → map), simulate (noise model), choose-on-map (pick lat/lon).
+ * Frontend logic for the Household Finder.
+ * Handles: search (Overpass → map), choose-on-map (pick lat/lon for search center).
  */
 
 // ── DOM references ───────────────────────────────────────────────────────────
@@ -8,12 +8,7 @@ const searchForm    = document.getElementById('search-form');
 const mapContainer  = document.getElementById('map-container');
 const mapLoading    = document.getElementById('map-loading');
 const metaCount     = document.getElementById('household-count');
-const simulateBtn   = document.getElementById('simulate-btn');
-const resultBox     = document.getElementById('result-box');
-const resultValue   = document.getElementById('result-value');
-const resultMeta    = document.getElementById('result-meta');
 
-// Keys must match backend error keys (routes returns errors.lat, errors.form, etc.)
 const searchErrorFields = {
   lat:    document.getElementById('error-lat'),
   lon:    document.getElementById('error-lon'),
@@ -21,24 +16,11 @@ const searchErrorFields = {
   form:   document.getElementById('form-error'),
 };
 
-const simErrorFields = {
-  freq:    document.getElementById('error-freq'),
-  eirp:    document.getElementById('error-eirp'),
-  height:  document.getElementById('error-height'),
-  n_s:     document.getElementById('error-n_s'),
-  epsilon: document.getElementById('error-epsilon'),
-  sigma:   document.getElementById('error-sigma'),
-  form:    document.getElementById('sim-form-error'),
-};
-
-let householdsReady = false;  // simulate button enabled only after a successful search
-
 function clearErrors(fields) {
   Object.values(fields).forEach((el) => { if (el) el.textContent = ''; });
 }
 
 function setErrors(fields, errors) {
-  // errors = { lat: "msg", form: "msg", ... }; falls back to fields.form if key missing
   Object.entries(errors).forEach(([key, msg]) => {
     const el = fields[key] || fields.form;
     if (el) el.textContent = msg;
@@ -51,12 +33,7 @@ function setLoading(btn, isLoading) {
     btn.disabled = true;
   } else {
     btn.classList.remove('loading');
-    // Re-enable simulate only when households are ready.
-    if (btn === simulateBtn) {
-      btn.disabled = !householdsReady;
-    } else {
-      btn.disabled = false;
-    }
+    btn.disabled = false;
   }
 }
 
@@ -65,8 +42,7 @@ function setLoading(btn, isLoading) {
 async function submitSearch(event) {
   event.preventDefault();
   clearErrors(searchErrorFields);
-  resultBox.hidden = true;
-  stopChooseOnMap();  // cancel pick mode before replacing map (iframe gets destroyed)
+  stopChooseOnMap();
 
   const searchBtn = document.getElementById('search-btn');
   setLoading(searchBtn, true);
@@ -91,8 +67,6 @@ async function submitSearch(event) {
 
     if (!resp.ok) {
       setErrors(searchErrorFields, data.errors || { form: 'An unexpected error occurred.' });
-      householdsReady = false;
-      simulateBtn.disabled = true;
       return;
     }
 
@@ -109,10 +83,6 @@ async function submitSearch(event) {
     if (data.meta && typeof data.meta.household_count !== 'undefined') {
       metaCount.textContent = String(data.meta.household_count);
     }
-
-    householdsReady = true;
-    simulateBtn.disabled = false;
-
   } catch (err) {
     setErrors(searchErrorFields, { form: 'Network error while fetching map. Please try again.' });
     console.error(err);
@@ -123,60 +93,10 @@ async function submitSearch(event) {
   }
 }
 
-// ── Simulate ─────────────────────────────────────────────────────────────────
-
-async function submitSimulation() {
-  clearErrors(simErrorFields);
-  resultBox.hidden = true;
-  setLoading(simulateBtn, true);
-
-  const jsonData = {  // read from input elements by id (must match index.html)
-    freq:    document.getElementById('freq').value,
-    eirp:    document.getElementById('eirp').value,
-    height:  document.getElementById('height').value,
-    n_s:     document.getElementById('n_s').value,
-    epsilon: document.getElementById('epsilon').value,
-    sigma:   document.getElementById('sigma').value,
-  };
-
-  try {
-    const resp = await fetch('/simulate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(jsonData),
-    });
-
-    let data;
-    try {
-      data = await resp.json();
-    } catch (_) {
-      // e.g. server returned "NaN" or malformed JSON
-      setErrors(simErrorFields, { form: 'Invalid response from server. See console for details.' });
-      return;
-    }
-
-    if (!resp.ok) {
-      setErrors(simErrorFields, data.errors || { form: 'An unexpected error occurred.' });
-      return;
-    }
-
-    resultValue.textContent = Number(data.received_power).toFixed(2);
-    resultMeta.textContent  = `Computed from ${data.source_count} noise source(s).`;
-    resultBox.hidden = false;
-
-  } catch (err) {
-    setErrors(simErrorFields, { form: `Network error during simulation: ${err.message}` });
-    console.error(err);
-  } finally {
-    setLoading(simulateBtn, false);
-  }
-}
-
 // ── Choose on map ────────────────────────────────────────────────────────────
-// Folium renders the map inside an iframe; we access Leaflet via iframe.contentWindow.
 
-const chooseOnMapBtn  = document.getElementById('choose-on-map-btn');
-const mapPickOverlay  = document.getElementById('map-pick-overlay');
+const chooseOnMapBtn = document.getElementById('choose-on-map-btn');
+const mapPickOverlay = document.getElementById('map-pick-overlay');
 
 /** Return the Leaflet L.Map instance inside the Folium iframe, or null. */
 function getFoliumLeafletMap() {
@@ -246,4 +166,3 @@ if (chooseOnMapBtn) {
 // ── Event listeners ───────────────────────────────────────────────────────────
 
 searchForm.addEventListener('submit', submitSearch);   // form submit → POST /search
-simulateBtn.addEventListener('click', submitSimulation);  // button click → POST /simulate

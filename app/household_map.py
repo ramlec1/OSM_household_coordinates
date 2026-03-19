@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple, Union
+from dataclasses import dataclass
 
 import folium
 import requests
-
-from simulation.MMN_dataclasses import NoiseSource
 
 
 # Defaults (this is the grolloo measurement location in the ITU-R RNDb)
@@ -22,6 +21,15 @@ _OVERPASS_ENDPOINTS = [
 ]
 
 
+@dataclass
+class Household:
+    """Represents a single household."""
+    id: int
+    lat: float                     # [deg] WGS84 latitude
+    lon: float                     # [deg] WGS84 longitude
+    address: str                   # addr:housenumber or OSM id
+
+    
 # Helper functions to parse the input parameters for validation
 def _parse_float(value: Any, name: str, min_value: Optional[float] = None, max_value: Optional[float] = None) -> Tuple[Optional[float], Optional[str]]:
     """Parse a float value with optional range validation."""
@@ -140,13 +148,12 @@ def build_blank_map(lat: float, lon: float) -> str:
 
 def build_household_map(
     lat: float, lon: float, radius: int
-) -> Tuple[str, Dict[str, Any], List[NoiseSource]]:
+) -> Tuple[str, Dict[str, Any], List[Household]]:
     """Build a Folium map showing households and a search radius.
 
     Returns:
-        (map_html, meta, sources)
-        sources is a list of NoiseSource objects (id, lat, lon, address set;
-        position, EIRP, freq, height filled in at simulate).
+        (map_html, meta, households)
+        households is a list of Household objects (id, lat, lon, address).
     """
 
     error_msg: Optional[str] = None
@@ -172,7 +179,7 @@ def build_household_map(
         icon=folium.Icon(color="red", icon="tower-broadcast", prefix="fa"),
     ).add_to(m)
 
-    sources: List[NoiseSource] = []
+    households: List[Household] = []
     for el in elements:
         if el.get("type") == "node":
             pos = [el.get("lat"), el.get("lon")]
@@ -183,12 +190,12 @@ def build_household_map(
         if not pos or None in pos:
             continue
 
-        source_id = len(sources)
+        household_id = len(households)
         addr = el.get("tags", {}).get("addr:housenumber") or str(el.get("id", ""))
-        src = NoiseSource(id=source_id, lat=pos[0], lon=pos[1], address=addr)
-        sources.append(src)
+        h = Household(id=household_id, lat=pos[0], lon=pos[1], address=addr)
+        households.append(h)
 
-        popup = f"ID: {src.id}\n({src.lat:.6f}, {src.lon:.6f})"
+        popup = f"ID: {h.id}\nHouse No: {h.address}\n({h.lat:.6f}, {h.lon:.6f})"
 
         folium.CircleMarker(
             location=pos,
@@ -199,7 +206,7 @@ def build_household_map(
             fill_opacity=0.8,
         ).add_to(m)
 
-    meta: Dict[str, Any] = {"household_count": len(sources)}
+    meta: Dict[str, Any] = {"household_count": len(households)}
     if error_msg:
         meta["error"] = error_msg
-    return m._repr_html_(), meta, sources
+    return m._repr_html_(), meta, households
