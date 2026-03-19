@@ -9,12 +9,14 @@ header {
   padding: 1rem 1.25rem;
   background: #1b2a49;
   color: #fff;
+  text-align: center;
 }
 
 footer {
   padding: 1rem 1.25rem;
   background: #1b2a49;
   color: #fff;
+  text-align: center;
 }
 
 header h1 {
@@ -270,6 +272,9 @@ button.loading .btn-label {
 }
 
 .meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 0.6rem;
   font-size: 0.95rem;
   color: rgba(0, 0, 0, 0.7);
