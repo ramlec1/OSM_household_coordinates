@@ -10,8 +10,8 @@ const mapLoading    = document.getElementById('map-loading');
 const metaCount       = document.getElementById('household-count');
 const downloadJsonBtn = document.getElementById('download-json-btn');
 
-let _lastHouseholds = [];
-let _lastParams = null;  // search params from last successful search
+/** Last successful search result for JSON download. */
+let lastSearchData = null;
 
 const searchErrorFields = {
   lat:    document.getElementById('error-lat'),
@@ -47,6 +47,8 @@ async function submitSearch(event) {
   event.preventDefault();
   clearErrors(searchErrorFields);
   stopChooseOnMap();
+  lastSearchData = null;
+  updateDownloadButtonState();
 
   const searchBtn = document.getElementById('search-btn');
   setLoading(searchBtn, true);
@@ -71,9 +73,8 @@ async function submitSearch(event) {
 
     if (!resp.ok) {
       setErrors(searchErrorFields, data.errors || { form: 'An unexpected error occurred.' });
-      _lastHouseholds = [];
-      _lastParams = null;
-      if (downloadJsonBtn) downloadJsonBtn.disabled = true;
+      lastSearchData = null;
+      updateDownloadButtonState();
       return;
     }
 
@@ -91,39 +92,22 @@ async function submitSearch(event) {
       metaCount.textContent = String(data.meta.household_count);
     }
 
-    _lastHouseholds = data.households || [];
-    _lastParams = data.params || null;
-    if (downloadJsonBtn) downloadJsonBtn.disabled = false;
+    lastSearchData = {
+      params: data.params || {},
+      household_count: data.meta?.household_count ?? 0,
+      households: data.households || [],
+    };
+    updateDownloadButtonState();
   } catch (err) {
     setErrors(searchErrorFields, { form: 'Network error while fetching map. Please try again.' });
+    lastSearchData = null;
+    updateDownloadButtonState();
     console.error(err);
   } finally {
     setLoading(searchBtn, false);
     mapLoading.classList.remove('is-loading');
     mapLoading.setAttribute('aria-hidden', 'true');
   }
-}
-
-// ── Download JSON ────────────────────────────────────────────────────────────
-
-function downloadHouseholdsJson() {
-  if (!_lastParams) return;
-  const payload = {
-    params: _lastParams,
-    household_count: _lastHouseholds.length,
-    households: _lastHouseholds,
-  };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `households_${_lastParams.lat.toFixed(4)}_${_lastParams.lon.toFixed(4)}_r${_lastParams.radius}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-if (downloadJsonBtn) {
-  downloadJsonBtn.addEventListener('click', downloadHouseholdsJson);
 }
 
 // ── Choose on map ────────────────────────────────────────────────────────────
@@ -195,6 +179,33 @@ if (chooseOnMapBtn) {
     }
   });
 }
+
+// ── Download JSON ─────────────────────────────────────────────────────────────
+
+function downloadHouseholdJson() {
+  if (!lastSearchData) return;
+  const json = JSON.stringify(lastSearchData, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `households.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function updateDownloadButtonState() {
+  if (downloadJsonBtn) {
+    downloadJsonBtn.disabled = !lastSearchData;
+  }
+}
+
+if (downloadJsonBtn) {
+  downloadJsonBtn.addEventListener('click', () => {
+    if (lastSearchData) downloadHouseholdJson();
+  });
+}
+updateDownloadButtonState();  // disable on init
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 
