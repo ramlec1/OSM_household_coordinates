@@ -9,9 +9,9 @@ import requests
 
 
 # Defaults (this is the grolloo measurement location in the ITU-R RNDb)
-DEFAULT_LAT = 52.9019
-DEFAULT_LON = 6.6533
-DEFAULT_RADIUS = 1000  # meters
+DEFAULT_LAT = 53.218685
+DEFAULT_LON = 6.567692
+DEFAULT_RADIUS = 500  # meters
 
 # Prefer a few different public Overpass endpoints to improve availability
 _OVERPASS_ENDPOINTS = [

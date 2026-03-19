@@ -45,8 +45,14 @@ def search_households():
     if meta.get("error"):
         return jsonify({"errors": {"form": meta["error"]}}), 400
 
+    households_data = [
+        {"id": h.id, "lat": h.lat, "lon": h.lon, "address": h.address}
+        for h in households
+    ]
+
     return jsonify({
         "map_html": map_html,
         "params": params,
         "meta": meta,
+        "households": households_data,
     })

@@ -7,7 +7,11 @@
 const searchForm    = document.getElementById('search-form');
 const mapContainer  = document.getElementById('map-container');
 const mapLoading    = document.getElementById('map-loading');
-const metaCount     = document.getElementById('household-count');
+const metaCount       = document.getElementById('household-count');
+const downloadJsonBtn = document.getElementById('download-json-btn');
+
+let _lastHouseholds = [];
+let _lastParams = null;  // search params from last successful search
 
 const searchErrorFields = {
   lat:    document.getElementById('error-lat'),
@@ -67,6 +71,9 @@ async function submitSearch(event) {
 
     if (!resp.ok) {
       setErrors(searchErrorFields, data.errors || { form: 'An unexpected error occurred.' });
+      _lastHouseholds = [];
+      _lastParams = null;
+      if (downloadJsonBtn) downloadJsonBtn.disabled = true;
       return;
     }
 
@@ -83,6 +90,10 @@ async function submitSearch(event) {
     if (data.meta && typeof data.meta.household_count !== 'undefined') {
       metaCount.textContent = String(data.meta.household_count);
     }
+
+    _lastHouseholds = data.households || [];
+    _lastParams = data.params || null;
+    if (downloadJsonBtn) downloadJsonBtn.disabled = false;
   } catch (err) {
     setErrors(searchErrorFields, { form: 'Network error while fetching map. Please try again.' });
     console.error(err);
@@ -91,6 +102,28 @@ async function submitSearch(event) {
     mapLoading.classList.remove('is-loading');
     mapLoading.setAttribute('aria-hidden', 'true');
   }
+}
+
+// ── Download JSON ────────────────────────────────────────────────────────────
+
+function downloadHouseholdsJson() {
+  if (!_lastParams) return;
+  const payload = {
+    params: _lastParams,
+    household_count: _lastHouseholds.length,
+    households: _lastHouseholds,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `households_${_lastParams.lat.toFixed(4)}_${_lastParams.lon.toFixed(4)}_r${_lastParams.radius}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+if (downloadJsonBtn) {
+  downloadJsonBtn.addEventListener('click', downloadHouseholdsJson);
 }
 
 // ── Choose on map ────────────────────────────────────────────────────────────
