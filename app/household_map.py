@@ -193,9 +193,23 @@ def get_households(lat: float, lon: float, radius: int) -> List[Dict[str, Any]]:
     )
 
 
-def build_blank_map(lat: float, lon: float) -> str:
+def build_blank_map(lat: float, lon: float, radius: int) -> str:
     """Build a plain Folium map centred on (lat, lon) with no overlays."""
-    m = folium.Map(location=[lat, lon], zoom_start=16)
+    m = folium.Map(location=[lat, lon], zoom_start=15)
+    folium.Circle(
+        radius=radius,
+        location=[lat, lon],
+        color="crimson",
+        fill=True,
+        fill_opacity=0.2,
+    ).add_to(m)
+    
+    folium.Marker(
+        [lat, lon],
+        popup="Center Point",
+        icon=folium.Icon(color="red", icon="tower-broadcast", prefix="fa"),
+    ).add_to(m)
+    
     return m._repr_html_()
 
 

@@ -275,7 +275,7 @@ button.loading .btn-label {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.6rem;
+  margin: 0.6rem 1rem 0rem 1rem;
   font-size: 0.95rem;
   color: rgba(0, 0, 0, 0.7);
 }

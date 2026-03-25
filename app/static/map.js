@@ -110,6 +110,31 @@ async function submitSearch(event) {
   }
 }
 
+searchForm.addEventListener('submit', submitSearch);   // form submit → POST /search
+
+// ── Refresh ──────────────────────────────────────────────────────────────────
+
+async function loadPreviewMap() {
+  const lat = document.getElementById('lat').value;
+  const lon = document.getElementById('lon').value;
+  const radius = document.getElementById('radius').value;
+  const resp = await fetch('/refresh-map', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lat, lon, radius }),
+  });
+  const data = await resp.json();
+  if (!resp.ok) return; // handle errors
+  mapContainer.innerHTML = data.map_html;
+}
+
+const refreshBtn = document.getElementById('refresh-btn');
+if (refreshBtn) {
+  refreshBtn.addEventListener('click', () => {
+    loadPreviewMap();
+  });
+}
+
 // ── Choose on map ────────────────────────────────────────────────────────────
 
 const chooseOnMapBtn = document.getElementById('choose-on-map-btn');
@@ -200,13 +225,4 @@ function updateDownloadButtonState() {
   }
 }
 
-if (downloadJsonBtn) {
-  downloadJsonBtn.addEventListener('click', () => {
-    if (lastSearchData) downloadHouseholdJson();
-  });
-}
-updateDownloadButtonState();  // disable on init
 
-// ── Event listeners ───────────────────────────────────────────────────────────
-
-searchForm.addEventListener('submit', submitSearch);   // form submit → POST /search
