@@ -225,4 +225,11 @@ function updateDownloadButtonState() {
   }
 }
 
+if (downloadJsonBtn) {
+  downloadJsonBtn.addEventListener('click', () => {
+    if (lastSearchData) {
+      downloadHouseholdJson();
+    }
+  });
+}
 
