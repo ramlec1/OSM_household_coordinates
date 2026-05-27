@@ -11,10 +11,10 @@ A web application that searches for households in OpenStreetMap and displays the
 Run the Flask application:
 
 ```bash
-python run_MMN_calculator.py
+python run_household_finder.py
 ```
 
-The server starts at **http://0.0.0.0:5000** (accessible on your network). Open a browser and navigate to `http://localhost:5000`.
+The server starts at **[http://0.0.0.0:5000](http://0.0.0.0:5000)** (accessible on your network). Open a browser and navigate to `http://localhost:5000`.
 
 ---
 
@@ -24,4 +24,6 @@ The server starts at **http://0.0.0.0:5000** (accessible on your network). Open 
 - **Overpass API:** The app uses public Overpass endpoints; large radii may hit timeouts.
 - **Search radius:** 1 m – 100 km (configurable).
 
+## Log
 
+2026-05-27 - added overpass headers for Overpass to fix API calls.

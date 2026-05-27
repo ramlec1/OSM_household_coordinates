@@ -20,6 +20,11 @@ _OVERPASS_ENDPOINTS = [
     "https://overpass.kumi.systems/api/interpreter",
 ]
 
+_OVERPASS_HEADERS = {
+    "User-Agent": "OSM_household_coordinates",
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+}
 
 @dataclass
 class Household:
@@ -178,7 +183,11 @@ def get_households(lat: float, lon: float, radius: int) -> List[Dict[str, Any]]:
     last_exc: Optional[Exception] = None
     for overpass_url in _OVERPASS_ENDPOINTS:
         try:
-            response = requests.get(overpass_url, params={"data": query}, timeout=60)
+            response = requests.get(
+                overpass_url, 
+                params={"data": query}, 
+                headers=_OVERPASS_HEADERS,
+                timeout=60)
             response.raise_for_status()
             return response.json().get("elements", [])
         except requests.RequestException as ex:
